@@ -1,0 +1,40 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: "cron"
+      cronjob: "15 0 * * 0"
+    open-pull-requests-limit: 1
+    rebase-strategy: "disabled"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "[GITHUB-ACTIONS] "
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    cooldown:
+      default-days: 3
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: "cron"
+      cronjob: "15 0 * * 0"
+    open-pull-requests-limit: 1
+    rebase-strategy: "disabled"
+    versioning-strategy: increase-if-necessary
+    groups:
+      uv:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "[UV] "
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    cooldown:
+      default-days: 3
