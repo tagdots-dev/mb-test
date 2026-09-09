@@ -1,0 +1,132 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [ "hatchling" ]
+
+[project]
+name = "pkg-30922"
+version = "0.0.0"
+readme = "README.md"
+license-files = [ "LICENSE" ]
+authors = [
+  { name = "developers", email = "developers@tagdots.com" },
+]
+requires-python = ">=3.12.10"
+classifiers = [
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Build Tools",
+]
+dependencies = []
+urls.Changelog = "https://github.com/tagdots-dev/mb-test/blob/main/CHANGELOG.md"
+urls.Documentation = "https://github.com/tagdots-dev/mb-test/blob/main/README.md"
+urls.Homepage = "https://github.com/tagdots-dev"
+urls.Issues = "https://github.com/tagdots-dev/mb-test/issues"
+urls.Repository = "https://github.com/tagdots-dev/mb-test"
+scripts.pkg-30922 = "pkg_30922.cli:main"
+
+[dependency-groups]
+dev = [
+  "commitizen",
+  "pre-commit",
+]
+test = [
+  "coverage",
+  "pytest",
+]
+security = [
+  "bandit",
+  "pysentry-rs",
+]
+
+[tool.hatch]
+version.path = "src/pkg_30922/__init__.py"
+metadata.directory = "src"
+build.targets.wheel.packages = [ "src/pkg_30922" ]
+
+[tool.uv]
+default-groups = [ "dev", "test" ]
+
+[tool.black]
+line-length = 125
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 4
+combine_as_imports = true
+float_to_top = true
+skip = [ "__init__.py" ]
+
+[tool.flake8]
+max-line-length = 125
+max-complexity = 15
+
+[tool.pyproject-fmt]
+column_width = 125
+indent = 2
+keep_full_version = true
+
+[tool.pyright]
+venv = ".venv"
+venvPath = "."
+
+[tool.coverage]
+run.source = [ "src/pkg_30922" ]
+run.omit = [ "tests/*" ]
+run.branch = true
+report.fail_under = 80
+report.show_missing = false
+
+[tool.commitizen]
+name = "cz_customize"
+version_scheme = "pep440"
+version_provider = "pep621"
+version_files = [
+  "src/pkg_30922/__init__.py:__version__",
+]
+major_version_zero = false
+tag_format = "$version"
+update_changelog_on_bump = true
+pre_bump_hooks = [ "uv lock" ]
+#
+# BUMP SETTINGS (Required so "cz bump" knows how to increment versions)
+customize.bump_map = { "BREAKING CHANGE" = "MAJOR", feat = "MINOR", fix = "PATCH", bugfix = "PATCH", hotfix = "PATCH", perf = "PATCH", refactor = "PATCH", dep = "PATCH" }
+customize.bump_pattern = "^(BREAKING[\\-\\ ]CHANGE|feat|fix|bugfix|hotfix|perf|refactor|dep)"
+#
+# CHANGELOG SETTINGS (Your specific grouping logic)
+customize.change_type_map = { feat = "New Features", perf = "Change Features", refactor = "Change Features", fix = "Fixes", bugfix = "Fixes", hotfix = "Fixes", dep = "Maintenance", build = "Others", ci = "Others", docs = "Others", style = "Others", test = "Others" }
+customize.change_type_order = [ "BREAKING CHANGE", "New Features", "Change Features", "Fixes", "Maintenance", "Others" ]
+customize.changelog_pattern = "^(BREAKING[\\-\\ ]CHANGE|feat|perf|refactor|fix|bugfix|hotfix|dep|build|ci|docs|style|test)"
+#
+# MESSAGE TEMPLATE (How the wizard formats your final commit message)
+customize.message_template = "{{prefix}}{% if scope %}({{scope}}){% endif %}: {{subject}}\n\n{{body}}"
+customize.schema_pattern = """\
+  ^(feat|perf|refactor|fix|bugfix|hotfix|dep|build|ci|docs|style|test|BREAKING[\\-\\ ]CHANGE)(?:\\((.*)\\))?!?: (.*)\
+  """
+
+# INTERACTIVE WIZARD QUESTIONS
+[[tool.commitizen.customize.questions]]
+type = "list"
+name = "prefix"
+message = "Select the type of change you are committing"
+choices = [
+  { value = "feat", name = "feat: A new feature" },
+  { value = "fix", name = "fix: A bug fix" },
+  { value = "build", name = "build: Build system changes" },
+  { value = "ci", name = "ci: CI configuration changes" },
+  { value = "docs", name = "docs: Documentation changes" },
+  { value = "style", name = "style: Formatting/code style changes" },
+  { value = "test", name = "test: Adding/fixing tests" },
+  { value = "perf", name = "perf: Performance improvements" },
+  { value = "refactor", name = "refactor: Code refactoring" },
+  { value = "dep", name = "dep: Dependency updates" }
+]
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "subject"
+message = "Write a short summary of the code changes:\n"
