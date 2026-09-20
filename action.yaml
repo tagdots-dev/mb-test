@@ -46,7 +46,7 @@ inputs:
 
   prefix:
     description: "Filter PRs by title prefix (case-insensitive, empty = all)"
-    default: "false"
+    default: ""
     required: false
 
   repo-type:
