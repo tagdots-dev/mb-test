@@ -76,29 +76,40 @@ runs:
       shell: bash
       run: make local-dev
 
-    - name: Get the latest version
+    - name: Get Project Name
+      id: project-name
       shell: bash
-      run: make local-dev
+      run: |
+        echo "PROJECT_NAME="uv tree -q -d 0 | awk '{print $1}'" >> "$GITHUB_OUTPUT"
 
-    - name: Run to how version
+    - name: Run to show version
       shell: bash
-      run: pkg-30922 --version
+      run: ${{ step.project-name.outputs.PROJECT_NAME }} --version
 
     - name: Run To Merge Pull Requests
       shell: bash
       env:
+        INPUT_BASE_BRANCH: "${{ inputs.base-branch }}"
+        INPUT_BYPASS_REVIEW_COUNT: "${{ inputs.bypass-review-count }}"
         INPUT_DRY_RUN: "${{ inputs.dry-run }}"
-        INPUT_REPO_URL: "${{ inputs.repo-url }}"
-        INPUT_MAX_IDLE_DAYS: "${{ inputs.max-idle-days }}"
-        INPUT_EXCLUDE_BRANCHES: "${{ inputs.exclude-branches }}"
+        INPUT_EXCLUDE_LABELS: "${{ inputs.exclude-labels }}"
+        INPUT_INCLUDE_LABELS: "${{ inputs.include-labels }}"
+        INPUT_MERGE_METHOD: "${{ inputs.merge-method }}"
+        INPUT_OWNER: "${{ inputs.owner }}"
+        INPUT_PREFIX: "${{ inputs.prefix }}"
+        INPUT_REPO_TYPE: "${{ inputs.repo-type}}"
       run: |
-        # delete-branches
-        if [[ -n "$INPUT_MAX_IDLE_DAYS" && "$INPUT_MAX_IDLE_DAYS" -ge 0 ]]; then
-          COLUMNS=145 pkg-32828 \
+        # merge pull requests
+        COLUMNS=145 ${{ step.project-name.outputs.PROJECT_NAME }} \
+            --base-branch "$INPUT_BASE_BRANCH" \
+            --bypass-review-count "$INPUT_BYPASS_REVIEW_COUNT" \
             --dry-run "$INPUT_DRY_RUN" \
-            --repo-url "$INPUT_REPO_URL" \
-            --max-idle-days "$INPUT_MAX_IDLE_DAYS" \
-            --exclude-branches "$INPUT_EXCLUDE_BRANCHES"
+            --exclude-labels "$INPUT_EXCLUDE_LABELS" \
+            --include-labels "$INPUT_INCLUDE_LABELS" \
+            --merge-method "$INPUT_MERGE_METHOD" \
+            --owner "$INPUT_OWNER" \
+            --prefix "$INPUT_PREFIX" \
+            --repo-type "$INPUT_REPO_TYPE"
         else
           echo "Error: please check your inputs"
           exit 1
