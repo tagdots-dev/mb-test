@@ -85,10 +85,9 @@ runs:
     - name: Run to show version
       shell: bash
       run: |
-        which uv
-        which python
-        which ${{ steps.project-name.outputs.PROJECT_NAME }}
-        ${{ steps.project-name.outputs.PROJECT_NAME }} --version
+        uv --version
+        python --version
+        uv run ${{ steps.project-name.outputs.PROJECT_NAME }} --version
 
     - name: Run To Merge Pull Requests
       shell: bash
@@ -104,7 +103,7 @@ runs:
         INPUT_REPO_TYPE: "${{ inputs.repo-type}}"
       run: |
         # merge pull requests
-        COLUMNS=145 ${{ steps.project-name.outputs.PROJECT_NAME }} \
+        COLUMNS=145 uv run ${{ steps.project-name.outputs.PROJECT_NAME }} \
             --base-branch "$INPUT_BASE_BRANCH" \
             --bypass-review-count "$INPUT_BYPASS_REVIEW_COUNT" \
             --dry-run "$INPUT_DRY_RUN" \
