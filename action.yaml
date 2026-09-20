@@ -1,0 +1,105 @@
+name: action
+
+description: "Merge Pull Requests" # About
+
+author: tagdots
+
+branding:
+  icon: git-pull-request
+  color: green
+
+inputs:
+  base-branch:
+    description: "The destination git branch where your changes are merged"
+    default: "main"
+    required: false
+
+  dry-run:
+    description: "Preview mode: true = show what would be merged, false = perform actual merge"
+    default: "true"
+    required: false
+
+  bypass-review-count:
+    description: "Bypass review count requirement"
+    default: "false"
+    required: false
+
+  exclude-labels:
+    description: "Labels to exclude to filter PRs"
+    default: ""
+    required: false
+
+  include-labels:
+    description: "Labels to include to filter PRs"
+    default: ""
+    required: false
+
+  merge-method:
+    description: "Pull request merge strategies: merge, rebase, squash"
+    default: "merge"
+    required: false
+
+  owner:
+    description: "Filter to specific GitHub user/org (leave empty for all)"
+    default: ${{ github.repository_owner }}
+    required: false
+
+  prefix:
+    description: "Filter PRs by title prefix (case-insensitive, empty = all)"
+    default: "false"
+    required: false
+
+  repo-type:
+    description: "Filter repositories by type: all, private, or public"
+    default: "all"
+    required: false
+
+runs:
+  using: "composite"
+
+  steps:
+    - name: Checkout source code # https://github.com/marketplace/actions/checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Setup Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: "3.14.x"
+
+    - name: Setup UV # https://github.com/marketplace/actions/astral-sh-setup-uv
+      uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      with:
+        enable-cache: "true"
+        version: 0.12.x
+
+    - name: Install the latest version
+      shell: bash
+      run: make local-dev
+
+    - name: Get the latest version
+      shell: bash
+      run: make local-dev
+
+    - name: Run to how version
+      shell: bash
+      run: pkg-30922 --version
+
+    - name: Run To Merge Pull Requests
+      shell: bash
+      env:
+        INPUT_DRY_RUN: "${{ inputs.dry-run }}"
+        INPUT_REPO_URL: "${{ inputs.repo-url }}"
+        INPUT_MAX_IDLE_DAYS: "${{ inputs.max-idle-days }}"
+        INPUT_EXCLUDE_BRANCHES: "${{ inputs.exclude-branches }}"
+      run: |
+        # delete-branches
+        if [[ -n "$INPUT_MAX_IDLE_DAYS" && "$INPUT_MAX_IDLE_DAYS" -ge 0 ]]; then
+          COLUMNS=145 pkg-32828 \
+            --dry-run "$INPUT_DRY_RUN" \
+            --repo-url "$INPUT_REPO_URL" \
+            --max-idle-days "$INPUT_MAX_IDLE_DAYS" \
+            --exclude-branches "$INPUT_EXCLUDE_BRANCHES"
+        else
+          echo "Error: please check your inputs"
+          exit 1
+        fi
