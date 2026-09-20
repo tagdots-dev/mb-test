@@ -1,0 +1,37 @@
+# Default configuration
+
+# Target base branch to filter PRs (case-sensitive)
+# Example: "main", "develop", "master"
+base-branch: "main"
+
+# Preview mode: true = show what would be merged, false = perform real merge
+# GitHub Actions: Use "false" to perform real merges
+dry-run: true
+
+# Labels to exclude to filter PRs (leave empty for all PRs)
+# Example: ["do-not-merge", "stale"], or leave as [] for all
+exclude_labels: []
+
+# Labels to include to filter PRs (leave empty for all PRs)
+# Example: ["ready-to-merge", "dependencies"], or leave as [] for all
+include_labels: []
+
+# Merge strategy for pull requests
+# Options: "merge" (default), "rebase", "squash"
+merge-method: "merge"
+
+# Bypass review count requirement
+# true = bypass required reviews (merge without sufficient approvals), false = respect review requirements
+bypass-review-count: false
+
+# Filter to specific GitHub user/org (leave empty for all)
+# Example: "user-name" or "org-name"
+owner: ""
+
+# Filter PRs by title prefix (case-insensitive, empty = all)
+# Example: "chore:", "fix:", "feat:"
+prefix: ""
+
+# Repository type filter
+# Options: "all" (all repos), "private" (private repos only), "public" (public repos only)
+repo-type: "all"
