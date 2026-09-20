@@ -1,0 +1,62 @@
+---
+name: merge-pulls
+
+on:
+  # schedule:
+  #   - cron: "0 9 * * 1-5" # Weekdays at 9 AM
+
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.14.x"
+  UV_VERSION: "0.12.x"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  merge-prs:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout source code # https://github.com/marketplace/actions/checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python # https://github.com/marketplace/actions/setup-python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Setup UV # https://github.com/marketplace/actions/astral-sh-setup-uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: "true"
+
+      - name: Merge Pull Requests
+        id: merge-pull-request
+        uses: tagdots-dev/mb-test@main
+        env:
+          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        with:
+          bypass-review-count: true
+          dry-run: true
+          include-labels: dependencies,automerge
+          owner: tagdots-dev
+
+      # - name: Install pkg-30922
+      #   shell: bash
+      #   run: uv add pkg-30922
+
+      # - name: Merge Pull Requests
+      #   shell: bash
+      #   run: |
+      #     python -m pkg_30922.cli \
+      #       --labels "ready-to-merge" \
+      #       --merge-method squash \
+      #       --dry-run false
