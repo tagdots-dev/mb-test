@@ -16,7 +16,7 @@ class TestGetAuth:
     """Tests for get_auth function."""
 
     @patch("pkg_30922.services.gh_user.Github")
-    @patch.dict(os.environ, {"GH_TOKEN": "fake-token"})
+    @patch.dict(os.environ, {"GH_TOKEN": "fake-token"})  # checkov:skip=CKV_SECRET_6
     def test_get_auth_success(self, mock_github: Mock) -> None:
         """Test successful authentication with valid token."""
         mock_gh_instance = Mock()
@@ -44,7 +44,7 @@ class TestGetAuth:
             get_auth()
 
     @patch("pkg_30922.services.gh_user.Github")
-    @patch.dict(os.environ, {"GH_TOKEN": "invalid-token"})
+    @patch.dict(os.environ, {"GH_TOKEN": "invalid-token"})  # checkov:skip=CKV_SECRET_6
     def test_get_auth_bad_credentials(self, mock_github: Mock) -> None:
         """Test that PermissionError is raised for invalid token."""
         mock_github.side_effect = BadCredentialsException(status=401, data={"message": "Bad credentials"})
