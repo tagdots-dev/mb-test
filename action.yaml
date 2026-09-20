@@ -80,7 +80,7 @@ runs:
       id: project-name
       shell: bash
       run: |
-        echo "PROJECT_NAME=uv tree -q -d 0 | awk '{print $1}'" >> "$GITHUB_OUTPUT"
+        echo "PROJECT_NAME=$(uv tree -q -d 0 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
     - name: Run to show version
       shell: bash

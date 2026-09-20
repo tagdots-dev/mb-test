@@ -4,7 +4,11 @@
 # Example: "main", "develop", "master"
 base-branch: "main"
 
-# Preview mode: true = show what would be merged, false = perform real merge
+# Bypass review count requirement
+# true = bypass required reviews (merge without sufficient approvals), false = respect review requirements
+bypass-review-count: false
+
+# Preview mode: true = show what would be merged, false = perform actual merge
 # GitHub Actions: Use "false" to perform real merges
 dry-run: true
 
@@ -19,10 +23,6 @@ include_labels: []
 # Merge strategy for pull requests
 # Options: "merge" (default), "rebase", "squash"
 merge-method: "merge"
-
-# Bypass review count requirement
-# true = bypass required reviews (merge without sufficient approvals), false = respect review requirements
-bypass-review-count: false
 
 # Filter to specific GitHub user/org (leave empty for all)
 # Example: "user-name" or "org-name"

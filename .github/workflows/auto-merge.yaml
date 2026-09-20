@@ -42,7 +42,7 @@ jobs:
         id: merge-pull-request
         uses: tagdots-dev/mb-test@main
         env:
-          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           bypass-review-count: true
           dry-run: true
