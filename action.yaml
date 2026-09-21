@@ -1,6 +1,6 @@
 name: action
 
-description: "Merge Pull Requests" # About
+description: "Merge Pull Requests"
 
 author: tagdots
 
@@ -76,18 +76,23 @@ runs:
       shell: bash
       run: make local-dev
 
+    - name: Get Run User
+      shell: bash
+      run: |
+        echo "${{ github.actor }}"
+
     - name: Get Project Name
       id: project-name
       shell: bash
       run: |
         echo "PROJECT_NAME=$(uv tree -q -d 0 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
-    - name: Show version
+    - name: Show versions
       shell: bash
       run: |
-        uv --version
-        python --version
-        uv run ${{ steps.project-name.outputs.PROJECT_NAME }} --version
+        echo "Python Version : $(python --version)"
+        echo "UV Version     : $(uv --version)"
+        echo "App Version    : $(uv run ${{ steps.project-name.outputs.PROJECT_NAME }} --version)
 
     - name: Run To Merge Pull Requests
       shell: bash
