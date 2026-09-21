@@ -183,7 +183,7 @@ async def _evaluation(
         if ci_status_body is None and results[1] is not None and isinstance(results[1], GithubException):
             if results[1].status == 403:
                 # Try status API as fallback
-                print(f"⚠️  Check-suites API returned 403 for {pr_repo}, falling back to status API")
+                # print(f"⚠️  Check-suites API returned 403 for {pr_repo}, falling back to status API")
                 ci_status_body = await _fetch_status_ci_fallback(gh, pr_repo, pr_sha)
 
         # Task C result (index 2) - task_req_reviews
@@ -360,7 +360,7 @@ async def _fetch_ci_status_with_fallback(gh: Any, pr_repo: str, pr_sha: str, tas
         if e.status == 403:
             # Check-suites API returned 403 (likely fine-grained PAT on private repo with no suites)
             # Fall back to status API
-            print(f"⚠️  Check-suites API returned 403 for {pr_repo}, falling back to status API")
+            # print(f"⚠️  Check-suites API returned 403 for {pr_repo}, falling back to status API")
             endpoint = f"/repos/{pr_repo}/commits/{pr_sha}/status"
             try:
                 _, status_body = await asyncio.to_thread(gh.requester.requestJsonAndCheck, "GET", endpoint)
