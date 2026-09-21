@@ -118,7 +118,3 @@ runs:
             --owner "$INPUT_OWNER" \
             --prefix "$INPUT_PREFIX" \
             --repo-type "$INPUT_REPO_TYPE"
-        else
-          echo "Error: please check your inputs"
-          exit 1
-        fi
