@@ -17,20 +17,28 @@ class TestGetReposFromAll:
     def test_get_repos_from_all_success(self, mock_repo_class: Mock) -> None:
         """Test successful retrieval of repositories."""
         mock_user = Mock()
+        mock_user.login = "testuser"
+        mock_org = Mock()
+        mock_org.login = "org"
+        mock_user.get_orgs.return_value = [mock_org]
+
         mock_repo1 = Mock()
         mock_repo1.full_name = "org/repo1"
         mock_repo1.archived = False
         mock_repo1.disabled = False
+        mock_repo1.owner.login = "org"
 
         mock_repo2 = Mock()
         mock_repo2.full_name = "org/repo2"
         mock_repo2.archived = False
         mock_repo2.disabled = False
+        mock_repo2.owner.login = "org"
 
         mock_repo3 = Mock()
         mock_repo3.full_name = "org/repo3_archived"
         mock_repo3.archived = True
         mock_repo3.disabled = False
+        mock_repo3.owner.login = "org"
 
         mock_user.get_repos.return_value = [mock_repo1, mock_repo2, mock_repo3]
 
@@ -46,6 +54,9 @@ class TestGetReposFromAll:
     def test_get_repos_from_all_empty_repos(self) -> None:
         """Test user with no repositories."""
         mock_user = Mock()
+        mock_org = Mock()
+        mock_org.login = "org"
+        mock_user.get_orgs.return_value = [mock_org]
         mock_user.get_repos.return_value = []
 
         repos_obj, repos_str = get_repos_from_all(Mock(), mock_user, "all")
@@ -57,15 +68,22 @@ class TestGetReposFromAll:
     def test_get_repos_from_all_disabled_repos(self, mock_repo_class: Mock) -> None:
         """Test that disabled repositories are filtered out."""
         mock_user = Mock()
+        mock_user.login = "testuser"
+        mock_org = Mock()
+        mock_org.login = "org"
+        mock_user.get_orgs.return_value = [mock_org]
+
         mock_repo1 = Mock()
         mock_repo1.full_name = "org/active_repo"
         mock_repo1.archived = False
         mock_repo1.disabled = False
+        mock_repo1.owner.login = "org"
 
         mock_repo2 = Mock()
         mock_repo2.full_name = "org/disabled_repo"
         mock_repo2.archived = False
         mock_repo2.disabled = True
+        mock_repo2.owner.login = "org"
 
         mock_user.get_repos.return_value = [mock_repo1, mock_repo2]
 
@@ -78,6 +96,9 @@ class TestGetReposFromAll:
     def test_get_repos_from_all_github_exception(self) -> None:
         """Test handling of GithubException."""
         mock_user = Mock()
+        mock_org = Mock()
+        mock_org.login = "org"
+        mock_user.get_orgs.return_value = [mock_org]
         mock_user.get_repos.side_effect = GithubException(status=403, data={"message": "Rate limit exceeded"})
 
         with pytest.raises(ValueError, match="GitHub API error occurred: 403"):
@@ -86,10 +107,148 @@ class TestGetReposFromAll:
     def test_get_repos_from_all_general_exception(self) -> None:
         """Test handling of general exceptions."""
         mock_user = Mock()
+        mock_org = Mock()
+        mock_org.login = "org"
+        mock_user.get_orgs.return_value = [mock_org]
         mock_user.get_repos.side_effect = Exception("Unexpected error")
 
         with pytest.raises(ValueError, match="Unexpected error"):
             get_repos_from_all(Mock(), mock_user, "all")
+
+    @patch("pkg_30922.services.gh_repo.Repository")
+    def test_get_repos_from_all_org_filtering(self, mock_repo_class: Mock) -> None:
+        """Test that repos from orgs not in access list are filtered out."""
+        mock_user = Mock()
+        mock_user.login = "testuser"
+        # Token only has access to 'allowed-org', not 'denied-org'
+        mock_allowed_org = Mock()
+        mock_allowed_org.login = "allowed-org"
+        mock_user.get_orgs.return_value = [mock_allowed_org]
+
+        # Repo in allowed org
+        mock_repo1 = Mock()
+        mock_repo1.full_name = "allowed-org/repo1"
+        mock_repo1.archived = False
+        mock_repo1.disabled = False
+        mock_repo1.owner.login = "allowed-org"
+
+        # Repo in denied org (should be filtered out)
+        mock_repo2 = Mock()
+        mock_repo2.full_name = "denied-org/repo2"
+        mock_repo2.archived = False
+        mock_repo2.disabled = False
+        mock_repo2.owner.login = "denied-org"
+
+        # User's own repo (should be included)
+        mock_repo3 = Mock()
+        mock_repo3.full_name = "testuser/repo3"
+        mock_repo3.archived = False
+        mock_repo3.disabled = False
+        mock_repo3.owner.login = "testuser"
+
+        mock_user.get_repos.return_value = [mock_repo1, mock_repo2, mock_repo3]
+
+        repos_obj, repos_str = get_repos_from_all(Mock(), mock_user, "all")
+
+        # Only repos from allowed org and user's own repos should be included
+        assert len(repos_str) == 2
+        assert "allowed-org/repo1" in repos_str
+        assert "testuser/repo3" in repos_str
+        assert "denied-org/repo2" not in repos_str
+
+    @patch("pkg_30922.services.gh_repo.Repository")
+    def test_get_repos_from_all_user_owned_repo_not_in_org(self, mock_repo_class: Mock) -> None:
+        """Test that user-owned repos not in orgs are included."""
+        mock_user = Mock()
+        mock_user.login = "testuser"
+        mock_user.get_orgs.return_value = []  # No org access
+
+        # User's own repo (should be included even without org access)
+        mock_repo1 = Mock()
+        mock_repo1.full_name = "testuser/repo1"
+        mock_repo1.archived = False
+        mock_repo1.disabled = False
+        mock_repo1.owner.login = "testuser"
+
+        # Repo in an org (should be filtered out)
+        mock_repo2 = Mock()
+        mock_repo2.full_name = "some-org/repo2"
+        mock_repo2.archived = False
+        mock_repo2.disabled = False
+        mock_repo2.owner.login = "some-org"
+
+        mock_user.get_repos.return_value = [mock_repo1, mock_repo2]
+
+        repos_obj, repos_str = get_repos_from_all(Mock(), mock_user, "all")
+
+        # Only user's own repo should be included
+        assert len(repos_str) == 1
+        assert "testuser/repo1" in repos_str
+        assert "some-org/repo2" not in repos_str
+
+    @patch("pkg_30922.services.gh_repo.Repository")
+    def test_get_repos_from_all_user_owned_archived_repo(self, mock_repo_class: Mock) -> None:
+        """Test that archived user-owned repos are filtered out."""
+        mock_user = Mock()
+        mock_user.login = "testuser"
+        mock_org = Mock()
+        mock_org.login = "org"
+        mock_user.get_orgs.return_value = [mock_org]
+
+        # User's own archived repo (should be filtered out)
+        mock_repo1 = Mock()
+        mock_repo1.full_name = "testuser/archived_repo"
+        mock_repo1.archived = True
+        mock_repo1.disabled = False
+        mock_repo1.owner.login = "testuser"
+
+        # User's own active repo (should be included)
+        mock_repo2 = Mock()
+        mock_repo2.full_name = "testuser/active_repo"
+        mock_repo2.archived = False
+        mock_repo2.disabled = False
+        mock_repo2.owner.login = "testuser"
+
+        mock_user.get_repos.return_value = [mock_repo1, mock_repo2]
+
+        repos_obj, repos_str = get_repos_from_all(Mock(), mock_user, "all")
+
+        # Only active user repo should be included
+        assert len(repos_str) == 1
+        assert "testuser/active_repo" in repos_str
+        assert "testuser/archived_repo" not in repos_str
+
+    @patch("pkg_30922.services.gh_repo.Repository")
+    def test_get_repos_from_all_user_owned_disabled_repo(self, mock_repo_class: Mock) -> None:
+        """Test that disabled user-owned repos are filtered out."""
+        mock_user = Mock()
+        mock_user.login = "testuser"
+        mock_org = Mock()
+        mock_org.login = "org"
+        mock_user.get_orgs.return_value = [mock_org]
+
+        # User's own disabled repo (should be filtered out)
+        mock_repo1 = Mock()
+        mock_repo1.full_name = "testuser/disabled_repo"
+        mock_repo1.archived = False
+        mock_repo1.disabled = True
+        mock_repo1.owner.login = "testuser"
+
+        # User's own active repo (should be included)
+        mock_repo2 = Mock()
+        mock_repo2.full_name = "testuser/active_repo"
+        mock_repo2.archived = False
+        mock_repo2.disabled = False
+        mock_repo2.owner.login = "testuser"
+
+        mock_user.get_repos.return_value = [mock_repo1, mock_repo2]
+
+        repos_obj, repos_str = get_repos_from_all(Mock(), mock_user, "all")
+
+        # Only active user repo should be included
+        assert len(repos_str) == 1
+        assert "testuser/active_repo" in repos_str
+        assert "testuser/disabled_repo" not in repos_str
 
 
 class TestGetReposFromOwner:

@@ -86,7 +86,7 @@ async def get_merge_readiness(
         elif isinstance(result, list):
             list_mergeable_prs.extend(result)
 
-    print(f"✅ Open PR Ready For Merge Info  :: {len(list_mergeable_prs)}")
+    print(f"✅ Open PR Ready For Merge Info. :: {len(list_mergeable_prs)}")
     for mpr in list_mergeable_prs:
         print(
             f"   ▪ Repo: {mpr["repo"]} (PR #{mpr["number"]}) -> "

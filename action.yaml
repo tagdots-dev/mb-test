@@ -77,11 +77,6 @@ runs:
       shell: bash
       run: make local-dev
 
-    - name: Get Run User
-      shell: bash
-      run: |
-        echo "${{ github.actor }}"
-
     - name: Get Project Name
       id: project-name
       shell: bash
