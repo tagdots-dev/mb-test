@@ -59,9 +59,6 @@ runs:
   using: "composite"
 
   steps:
-    - name: Checkout source code # https://github.com/marketplace/actions/checkout
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
     - name: Setup Python
       uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
@@ -73,22 +70,18 @@ runs:
         enable-cache: "true"
         version: 0.12.x
 
-    - name: Install dependencies
-      shell: bash
-      run: make local-dev
-
-    - name: Get Project Name
-      id: project-name
+    - name: Install App
       shell: bash
       run: |
-        echo "PROJECT_NAME=$(uv tree -q -d 0 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+        uv venv
+        uv pip install -U pkg-30922
 
     - name: Show versions
       shell: bash
       run: |
         echo "Python Version : $(python --version)"
         echo "UV Version     : $(uv --version)"
-        echo "App Version    : $(uv run ${{ steps.project-name.outputs.PROJECT_NAME }} --version)"
+        echo "App Version    : $(uv run pkg-30922 --version)"
 
     - name: Run To Merge Pull Requests
       shell: bash
@@ -104,7 +97,7 @@ runs:
         INPUT_REPO_TYPE: "${{ inputs.repo-type}}"
       run: |
         # merge pull requests
-        COLUMNS=145 uv run ${{ steps.project-name.outputs.PROJECT_NAME }} \
+        COLUMNS=145 uv run pkg-30922 \
             --base-branch "$INPUT_BASE_BRANCH" \
             --bypass-review-count "$INPUT_BYPASS_REVIEW_COUNT" \
             --dry-run "$INPUT_DRY_RUN" \
