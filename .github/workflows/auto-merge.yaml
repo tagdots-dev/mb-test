@@ -24,7 +24,7 @@ jobs:
         id: merge-pull-request
         uses: tagdots-dev/mb-test@main
         env:
-          GH_TOKEN: ${{ secrets.SECRET_PAT }}
+          GH_TOKEN: ${{ secrets.SECRET_FGPAT }}
         with:
           base-branch: main
           bypass-review-count: true
