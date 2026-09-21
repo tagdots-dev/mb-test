@@ -24,10 +24,10 @@ async def put_merge_pr(gh: Github, list_mergeable_prs: List[dict], merge_method:
         gh: Authenticated Github client instance.
         list_mergeable_prs: List of PR data dictionaries ready for merging.
         merge_method: Merge strategy ('merge', 'rebase', or 'squash').
-        dry_run: If True, no merges are executed (returns None).
+        dry_run: If True, no merges are executed (returns empty list).
 
     Returns:
-        List of merged PR data dictionaries, or None if dry_run is True.
+        List of merged PR data dictionaries, or empty list if dry_run is True.
     """
     if dry_run:
         print("❌ Dry-Run Must Be False to Merge")
