@@ -41,7 +41,8 @@ inputs:
 
   owner:
     description: "Filter to specific GitHub user/org (leave empty for all)"
-    default: ${{ github.repository_owner }}
+    # default: ${{ github.repository_owner }}
+    default: ""
     required: false
 
   prefix:
