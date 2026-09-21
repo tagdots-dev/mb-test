@@ -92,7 +92,7 @@ runs:
       run: |
         echo "Python Version : $(python --version)"
         echo "UV Version     : $(uv --version)"
-        echo "App Version    : $(uv run ${{ steps.project-name.outputs.PROJECT_NAME }} --version)
+        echo "App Version    : $(uv run ${{ steps.project-name.outputs.PROJECT_NAME }} --version)"
 
     - name: Run To Merge Pull Requests
       shell: bash
