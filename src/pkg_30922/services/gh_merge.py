@@ -14,7 +14,7 @@ from typing import List
 from github import Github, GithubException
 
 
-async def put_merge_pr(gh: Github, list_mergeable_prs: List[dict], merge_method: str, dry_run: bool) -> List[dict] | None:
+async def put_merge_pr(gh: Github, list_mergeable_prs: List[dict], merge_method: str, dry_run: bool) -> List[dict]:
     """
     Execute merge operations for multiple pull requests.
 
@@ -31,7 +31,7 @@ async def put_merge_pr(gh: Github, list_mergeable_prs: List[dict], merge_method:
     """
     if dry_run:
         print("❌ Dry-Run Must Be False to Merge")
-        return None
+        return []
 
     tasks = [_merge(gh, pr["repo"], pr["number"], pr["title"], pr["html_url"], merge_method) for pr in list_mergeable_prs]
     results = await asyncio.gather(*tasks, return_exceptions=True)

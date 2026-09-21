@@ -108,6 +108,23 @@ def check_merge_method(merge_method: str) -> None:
             raise CustomError("CLI option '--merge-method' requires merge, rebase, or squash")
 
 
+def print_summary(number_of_open_prs: int, number_of_mergeable_prs: int, number_of_merged_prs: int) -> None:
+    """
+    Print summary
+
+    Args:
+        number_of_open_prs: Number of open pull requests
+        number_of_mergeable_prs: Number of mergeable pull requests
+        number_of_merged_prs: Number of merged pull requests
+    """
+    dict_summary = {}
+    dict_summary["open-prs"] = number_of_open_prs
+    dict_summary["mergeable-prs"] = number_of_mergeable_prs
+    dict_summary["merged-prs"] = number_of_merged_prs
+    print()
+    print(f"🎉 Merge Pull Request Task Info. :: {dict_summary}")
+
+
 @click.command()
 @click.option("--base-branch", type=str, default="main", help="Restrict to a particular base-branch [case-sensitive]")
 @click.option("--bypass-review-count", type=bool, default=False, help="Bypass required review count (default: false)")
@@ -219,7 +236,9 @@ async def main(
         list_mergeable_prs = await get_merge_readiness(gh, list_open_prs, base_branch, bypass_review_count, merge_method)
 
         # 6. Merge PRs
-        await put_merge_pr(gh, list_mergeable_prs, merge_method, dry_run)
+        list_merged_prs = await put_merge_pr(gh, list_mergeable_prs, merge_method, dry_run)
+
+        print_summary(len(list_open_prs), len(list_mergeable_prs), len(list_merged_prs))
 
     except CustomError as err:
         print(f"\n❌ Configuration Error: {err}")

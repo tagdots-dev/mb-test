@@ -3,7 +3,7 @@ name: merge-pulls
 
 on:
   # schedule:
-  #   - cron: "0 9 * * 1-5" # Weekdays at 9 AM
+  #   - cron: "0 9 * * 1" # Weekdays at 9 AM UTC
 
   workflow_dispatch:
 
@@ -24,14 +24,14 @@ jobs:
         id: merge-pull-request
         uses: tagdots-dev/mb-test@main
         env:
-          GH_TOKEN: ${{ secrets.SECRET_FGPAT }}
+          GH_TOKEN: ${{ secrets.SECRET_PAT }}
         with:
           base-branch: main
           bypass-review-count: true
           dry-run: true
           exclude-labels: "do-not-merge,stale"
-          include-labels: dependencies,automerge
+          include-labels: "automerge,dependencies"
           merge-method: merge
-          owner: tagdots-dev
+          owner: ""
           prefix: ""
           repo-type: all
