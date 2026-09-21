@@ -175,9 +175,18 @@ async def _evaluation(
         pr_body = _extract_result_or_handle_error(results[0], "PR fetch", pr_repo)
 
         # Task B result (index 1)
-        ci_status_body = _extract_result_or_handle_error(results[1], "CI status fetch", pr_repo)
+        # Suppress 403 warning since we have a fallback to status API
+        ci_status_body = _extract_result_or_handle_error(results[1], "CI status fetch", pr_repo, suppress_warning=True)
 
-        # Task C result (index 2)
+        # If check-suites returns 403 (common with fine-grained PATs on private repos with no suites),
+        # fall back to status API to get CI test results
+        if ci_status_body is None and results[1] is not None and isinstance(results[1], GithubException):
+            if results[1].status == 403:
+                # Try status API as fallback
+                print(f"⚠️  Check-suites API returned 403 for {pr_repo}, falling back to status API")
+                ci_status_body = await _fetch_status_ci_fallback(gh, pr_repo, pr_sha)
+
+        # Task C result (index 2) - task_req_reviews
         # Handle req_reviews result - if it fails with 404/403, it means no branch protection
         # GitHub returns 404 when no protection rules exist on the branch
         # Suppress warning for Task C since 404/403 is expected for non-protected branches
@@ -187,7 +196,7 @@ async def _evaluation(
         if not req_reviews_body:
             req_reviews_body = {"required_approving_review_count": 0}
 
-        # Task D result (index 3)
+        # Task D result (index 3) - task_pr_reviews
         pr_reviews_body = _extract_result_or_handle_error(results[3], "PR reviews fetch", pr_repo)
 
         """
@@ -323,18 +332,68 @@ def _extract_result_or_handle_error(result: Any, task_name: str, repo: str, supp
         return cast(Tuple[Any, Any], result)[1]
 
 
+async def _fetch_ci_status_with_fallback(gh: Any, pr_repo: str, pr_sha: str, task_name: str) -> dict | None:
+    """
+    Fetch CI status, falling back to status API if check-suites returns 403.
+
+    Fine-grained PATs on private repos with zero check-suites return 403 instead of empty array.
+    In this case, we fall back to the status API to get CI test results.
+
+    Args:
+        gh: Authenticated Github client instance.
+        pr_repo: Repository full name.
+        pr_sha: Commit SHA.
+        task_name: Name of the task for error logging.
+
+    Returns:
+        CI status body dict with check_suites or status data, or None if both APIs fail.
+    """
+    # First, try check-suites API
+    endpoint = f"/repos/{pr_repo}/commits/{pr_sha}/check-suites"
+    hdrs = {"Accept": "application/vnd.github+json"}
+    try:
+        _, ci_status = await asyncio.to_thread(
+            gh.requester.requestJsonAndCheck, "GET", endpoint, parameters=None, headers=hdrs
+        )
+        return ci_status
+    except GithubException as e:
+        if e.status == 403:
+            # Check-suites API returned 403 (likely fine-grained PAT on private repo with no suites)
+            # Fall back to status API
+            print(f"⚠️  Check-suites API returned 403 for {pr_repo}, falling back to status API")
+            endpoint = f"/repos/{pr_repo}/commits/{pr_sha}/status"
+            try:
+                _, status_body = await asyncio.to_thread(gh.requester.requestJsonAndCheck, "GET", endpoint)
+                # Convert status API format to check-suites format for compatibility
+                # status API returns: state (success/pending/failure), statuses (list)
+                # We convert to check-suites-like format
+                return _convert_status_to_check_suites_format(status_body)
+            except GithubException as e2:
+                print(f"⚠️  Status API fallback also failed for {pr_repo}: {e2}")
+                return None
+        else:
+            print(f"⚠️  Check-suites API failed for {pr_repo}: {e}")
+            return None
+    except Exception as e:
+        print(f"⚠️  CI status fetch failed for {pr_repo}: {e}")
+        return None
+
+
 def _evaluate_ci_status(ci_status_body: dict) -> str | None:
     """
     Evaluate CI status and return merge readiness.
 
     Checks the latest check-suite conclusion to determine if CI is passing.
+    Handles responses from both check-suites API and status API fallback.
 
     Args:
-        ci_status_body: The CI status response from GitHub API (check-suites endpoint).
+        ci_status_body: The CI status response from GitHub API.
 
     Returns:
-        "ok-for-merge" if CI passed (no check-suites or latest is success),
-        None if PR should be skipped (pending approval or CI failed).
+        "ok-for-merge" if:
+            - No CI checks (total_count == 0), OR
+            - CI checks completed with success conclusion
+        None if PR should be skipped (pending, failed, or no approval).
     """
     check_suites_total_count = ci_status_body.get("total_count", 0)
 
@@ -342,7 +401,12 @@ def _evaluate_ci_status(ci_status_body: dict) -> str | None:
         return "ok-for-merge"
 
     if check_suites_total_count == 1:
-        return None  # check-suites pending approval to run
+        # Check if this is from status API fallback with success state
+        # In this case, total_count=1 with conclusion=success means CI passed
+        conclusion = ci_status_body.get("check_suites", [{}])[-1].get("conclusion")
+        if conclusion == "success":
+            return "ok-for-merge"
+        return None  # check-suites pending approval to run or failed
 
     # check_suites_total_count: 2 - check the last one's conclusion
     conclusion = ci_status_body["check_suites"][-1].get("conclusion")
@@ -350,6 +414,94 @@ def _evaluate_ci_status(ci_status_body: dict) -> str | None:
         return "ok-for-merge"
 
     return None  # Skip PR
+
+
+async def _fetch_status_ci_fallback(gh: Any, pr_repo: str, pr_sha: str) -> dict | None:
+    """
+    Fallback to status API when check-suites returns 403.
+
+    Fine-grained PATs on private repos may return 403 from check-suites API
+    (even when there are no check suites). We fall back to status API to
+    determine CI status. If status API also returns 403, we treat it as
+    having no CI checks (ok-for-merge).
+
+    Args:
+        gh: Authenticated Github client instance.
+        pr_repo: Repository full name.
+        pr_sha: Commit SHA.
+
+    Returns:
+        CI status body dict in check-suites-like format, or None if API fails.
+        Returns {"total_count": 0, "check_suites": []} if both APIs return 403.
+    """
+    endpoint = f"/repos/{pr_repo}/commits/{pr_sha}/status"
+    try:
+        _, status_body = await asyncio.to_thread(gh.requester.requestJsonAndCheck, "GET", endpoint)
+        # Convert status API format to check-suites-like format for compatibility
+        return _convert_status_to_check_suites_format(status_body)
+    except GithubException as e:
+        if e.status == 403:
+            # Status API also returns 403 - treat as "no CI checks" = ok-for-merge
+            print(f"⚠️  Status API fallback also returned 403 for {pr_repo}, treating as no CI checks")
+            return {"total_count": 0, "check_suites": []}
+        print(f"⚠️  Status API fallback also failed for {pr_repo}: {e}")
+        return None
+    except Exception as e:
+        print(f"⚠️  Status API fallback also failed for {pr_repo}: {e}")
+        return None
+
+
+def _convert_status_to_check_suites_format(status_body: dict) -> dict:
+    """
+    Convert status API response to check-suites-like format for compatibility.
+
+    Status API returns:
+    - state: 'success', 'pending', or 'failure'
+    - statuses: list of status contexts with state
+
+    Check-suites format:
+    - total_count: number of CI checks (0 if no statuses)
+    - check_suites: list with conclusion (success, neutral, failure, etc.)
+
+    Args:
+        status_body: Response from status API
+
+    Returns:
+        Dict in check-suites-like format with total_count and check_suites
+    """
+    state = status_body.get("state", "failure")
+    statuses = status_body.get("statuses", [])
+
+    # Map status state to check-suites conclusion
+    # success -> success, pending -> pending, failure -> failure
+    if state == "success":
+        conclusion = "success"
+    elif state == "pending":
+        conclusion = "pending"
+    else:  # failure or unknown
+        conclusion = "failure"
+
+    # Process individual statuses to determine worst outcome
+    for s in statuses:
+        s_state = s.get("state", "")
+        if s_state == "failure":
+            conclusion = "failure"
+            break
+        elif s_state == "pending" and conclusion == "success":
+            conclusion = "pending"
+
+    # Determine total_count: if no statuses, treat as no CI checks (0)
+    total_count = len(statuses) if statuses else 0
+
+    return {
+        "total_count": total_count,
+        "check_suites": [
+            {
+                "conclusion": conclusion,
+                "status": conclusion if conclusion in ["success", "neutral", "failure"] else "completed",
+            }
+        ],
+    }
 
 
 def _evaluate_review_status(pr_reviews_body: list[dict], required_review_count: int, bypass_review_count: bool) -> str:

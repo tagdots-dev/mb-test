@@ -8,6 +8,8 @@ from pkg_30922.services.gh_ci import (
     _evaluate_review_status,
     _evaluation,
     _extract_result_or_handle_error,
+    _fetch_ci_status_with_fallback,
+    _fetch_status_ci_fallback,
     get_merge_readiness,
 )
 
@@ -168,6 +170,220 @@ class TestExtractResultOrHandleError:
         """Test handling of None result."""
         extracted = _extract_result_or_handle_error(None, "test_task", "test_repo")
         assert extracted is None
+
+
+class TestEvaluateCiStatusStatusApiFallback:
+    """Tests for CI status evaluation with status API fallback (403 on check-suites)."""
+
+    def test_evaluate_ci_status_status_api_fallback_success(self) -> None:
+        """Test CI status with status API fallback (total_count=1, conclusion=success)."""
+        ci_status = {
+            "total_count": 1,
+            "check_suites": [{"conclusion": "success"}],
+        }
+        result = _evaluate_ci_status(ci_status)
+        assert result == "ok-for-merge"
+
+    def test_evaluate_ci_status_status_api_fallback_pending(self) -> None:
+        """Test CI status with status API fallback (total_count=1, conclusion=None)."""
+        ci_status = {
+            "total_count": 1,
+            "check_suites": [{"conclusion": None}],
+        }
+        result = _evaluate_ci_status(ci_status)
+        assert result is None
+
+    def test_evaluate_ci_status_status_api_fallback_failure(self) -> None:
+        """Test CI status with status API fallback (total_count=1, conclusion=failure)."""
+        ci_status = {
+            "total_count": 1,
+            "check_suites": [{"conclusion": "failure"}],
+        }
+        result = _evaluate_ci_status(ci_status)
+        assert result is None
+
+
+class TestFetchStatusCiFallback:
+    """Tests for _fetch_status_ci_fallback function."""
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_status_ci_fallback_success_empty_statuses(self, mock_to_thread: Mock) -> None:
+        """Test successful status API fallback with empty statuses."""
+        mock_to_thread.return_value = (
+            None,
+            {"state": "success", "statuses": []},
+        )
+        result = await _fetch_status_ci_fallback(Mock(), "org/repo", "abc123")
+        assert result is not None
+        assert result["total_count"] == 0
+        assert len(result["check_suites"]) == 1
+        assert result["check_suites"][0]["conclusion"] == "success"
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_status_ci_fallback_success_with_statuses(self, mock_to_thread: Mock) -> None:
+        """Test successful status API fallback with statuses."""
+        mock_to_thread.return_value = (
+            None,
+            {
+                "state": "success",
+                "statuses": [
+                    {"context": "ci/circleci", "state": "success", "target_url": None, "description": "Build succeeded"}
+                ],
+            },
+        )
+        result = await _fetch_status_ci_fallback(Mock(), "org/repo", "abc123")
+        assert result is not None
+        assert result["total_count"] == 1
+        assert len(result["check_suites"]) == 1
+        assert result["check_suites"][0]["conclusion"] == "success"
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_status_ci_fallback_pending_status(self, mock_to_thread: Mock) -> None:
+        """Test status API with pending status."""
+        mock_to_thread.return_value = (
+            None,
+            {"state": "pending", "statuses": []},
+        )
+        result = await _fetch_status_ci_fallback(Mock(), "org/repo", "abc123")
+        assert result is not None
+        assert result["total_count"] == 0
+        assert len(result["check_suites"]) == 1
+        assert result["check_suites"][0]["conclusion"] == "pending"
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_status_ci_fallback_failure_status(self, mock_to_thread: Mock) -> None:
+        """Test status API with failure status."""
+        mock_to_thread.return_value = (
+            None,
+            {"state": "failure", "statuses": []},
+        )
+        result = await _fetch_status_ci_fallback(Mock(), "org/repo", "abc123")
+        assert result is not None
+        assert result["total_count"] == 0
+        assert len(result["check_suites"]) == 1
+        assert result["check_suites"][0]["conclusion"] == "failure"
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_status_ci_fallback_failure_in_statuses(self, mock_to_thread: Mock) -> None:
+        """Test status API with failure in statuses list."""
+        mock_to_thread.return_value = (
+            None,
+            {
+                "state": "success",
+                "statuses": [
+                    {"context": "ci/circleci", "state": "failure", "target_url": None, "description": "Build failed"}
+                ],
+            },
+        )
+        result = await _fetch_status_ci_fallback(Mock(), "org/repo", "abc123")
+        assert result is not None
+        assert result["total_count"] == 1
+        assert len(result["check_suites"]) == 1
+        assert result["check_suites"][0]["conclusion"] == "failure"
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_status_ci_fallback_pending_in_statuses(self, mock_to_thread: Mock) -> None:
+        """Test status API with pending status and success as base state."""
+        mock_to_thread.return_value = (
+            None,
+            {
+                "state": "success",
+                "statuses": [
+                    {"context": "ci/circleci", "state": "pending", "target_url": None, "description": "Build running"}
+                ],
+            },
+        )
+        result = await _fetch_status_ci_fallback(Mock(), "org/repo", "abc123")
+        assert result is not None
+        assert result["total_count"] == 1
+        assert len(result["check_suites"]) == 1
+        assert result["check_suites"][0]["conclusion"] == "pending"
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_status_ci_fallback_403(self, mock_to_thread: Mock) -> None:
+        """Test status API returns 403 - should return empty check_suites."""
+        mock_to_thread.side_effect = GithubException(403, {"message": "Forbidden"})
+        result = await _fetch_status_ci_fallback(Mock(), "org/repo", "abc123")
+        assert result == {"total_count": 0, "check_suites": []}
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_status_ci_fallback_exception(self, mock_to_thread: Mock) -> None:
+        """Test status API raises exception - should return None."""
+        mock_to_thread.side_effect = Exception("API Error")
+        result = await _fetch_status_ci_fallback(Mock(), "org/repo", "abc123")
+        assert result is None
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_status_ci_fallback_github_exception_non_403(self, mock_to_thread: Mock) -> None:
+        """Test status API raises non-403 GithubException - should return None."""
+        mock_to_thread.side_effect = GithubException(500, {"message": "Internal Server Error"})
+        result = await _fetch_status_ci_fallback(Mock(), "org/repo", "abc123")
+        assert result is None
+
+
+class TestFetchCiStatusWithFallback:
+    """Tests for _fetch_ci_status_with_fallback function."""
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_ci_status_with_fallback_check_suites_success(self, mock_to_thread: Mock) -> None:
+        """Test successful check-suites API (no fallback needed)."""
+        mock_to_thread.return_value = (
+            None,
+            {"total_count": 1, "check_suites": [{"conclusion": "success"}]},
+        )
+        result = await _fetch_ci_status_with_fallback(Mock(), "org/repo", "abc123", "test_task")
+        assert result is not None
+        assert result["total_count"] == 1
+        assert result["check_suites"][0]["conclusion"] == "success"
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_ci_status_with_fallback_check_suites_403_fallback_success(self, mock_to_thread: Mock) -> None:
+        """Test check-suites returns 403, status API fallback succeeds."""
+        mock_to_thread.side_effect = [
+            GithubException(403, {"message": "Forbidden"}),  # check-suites 403
+            (None, {"state": "success", "statuses": []}),  # status API success
+        ]
+        result = await _fetch_ci_status_with_fallback(Mock(), "org/repo", "abc123", "test_task")
+        assert result is not None
+        assert result["total_count"] == 0
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_ci_status_with_fallback_check_suites_403_fallback_403(self, mock_to_thread: Mock) -> None:
+        """Test check-suites 403, status API also returns 403."""
+        mock_to_thread.side_effect = [
+            GithubException(403, {"message": "Forbidden"}),  # check-suites 403
+            GithubException(403, {"message": "Forbidden"}),  # status API 403
+        ]
+        result = await _fetch_ci_status_with_fallback(Mock(), "org/repo", "abc123", "test_task")
+        assert result is None
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_ci_status_with_fallback_check_suites_exception(self, mock_to_thread: Mock) -> None:
+        """Test check-suites API raises exception (not 403)."""
+        mock_to_thread.side_effect = GithubException(404, {"message": "Not Found"})
+        result = await _fetch_ci_status_with_fallback(Mock(), "org/repo", "abc123", "test_task")
+        assert result is None
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_fetch_ci_status_with_fallback_general_exception(self, mock_to_thread: Mock) -> None:
+        """Test general exception in check-suites API."""
+        mock_to_thread.side_effect = Exception("Network Error")
+        result = await _fetch_ci_status_with_fallback(Mock(), "org/repo", "abc123", "test_task")
+        assert result is None
 
 
 class TestGetMergeReadiness:
@@ -491,6 +707,62 @@ class TestEvaluationIntegration:
         result = await _evaluation(
             Mock(), "org/repo", 1, "abc123", "Test PR", "https://github.com/org/repo/pull/1", "main", False, "merge"
         )
+        assert result is None
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_evaluation_check_suites_403_fallback_success(self, mock_to_thread: Mock) -> None:
+        """Test check-suites returns 403, status API fallback succeeds with ok-for-merge."""
+        mock_to_thread.side_effect = [
+            (None, {"draft": False, "mergeable": True, "rebaseable": True}),  # PR body (first)
+            GithubException(403, {"message": "Forbidden"}),  # check-suites 403 (second)
+            (None, {"required_approving_review_count": 1}),  # Protection (third)
+            (None, [{"state": "APPROVED", "user": {"login": "reviewer1"}}]),  # Reviews (fourth)
+            (None, {"state": "success", "statuses": []}),  # status API fallback (fifth, inside _fetch_status_ci_fallback)
+        ]
+
+        result = await _evaluation(
+            Mock(), "org/repo", 1, "abc123", "Test PR", "https://github.com/org/repo/pull/1", "main", False, "merge"
+        )
+
+        assert result is not None
+        assert result[0]["ci_chk_suites_status"] == "ok-for-merge"
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_evaluation_check_suites_403_warning_log(self, mock_to_thread: Mock) -> None:
+        """Test check-suites 403 triggers fallback and warning log."""
+        mock_to_thread.side_effect = [
+            (None, {"draft": False, "mergeable": True, "rebaseable": True}),  # PR body (first)
+            GithubException(403, {"message": "Forbidden"}),  # check-suites 403 (second)
+            (None, {"required_approving_review_count": 1}),  # Protection (third)
+            (None, [{"state": "APPROVED", "user": {"login": "reviewer1"}}]),  # Reviews (fourth)
+            (None, {"state": "success", "statuses": []}),  # status API fallback (fifth, inside _fetch_status_ci_fallback)
+        ]
+
+        result = await _evaluation(
+            Mock(), "org/repo", 1, "abc123", "Test PR", "https://github.com/org/repo/pull/1", "main", False, "merge"
+        )
+
+        assert result is not None
+        assert result[0]["ci_chk_suites_status"] == "ok-for-merge"
+
+    @pytest.mark.asyncio
+    @patch("pkg_30922.services.gh_ci.asyncio.to_thread")
+    async def test_evaluation_check_suites_404_no_fallback(self, mock_to_thread: Mock) -> None:
+        """Test check-suites returns 404 (not 403) - no fallback triggered."""
+        mock_to_thread.side_effect = [
+            (None, {"draft": False, "mergeable": True, "rebaseable": True}),  # PR body
+            GithubException(404, {"message": "Not Found"}),  # check-suites 404 (not 403)
+            (None, {"required_approving_review_count": 1}),  # Protection
+            (None, [{"state": "APPROVED", "user": {"login": "reviewer1"}}]),  # Reviews
+        ]
+
+        result = await _evaluation(
+            Mock(), "org/repo", 1, "abc123", "Test PR", "https://github.com/org/repo/pull/1", "main", False, "merge"
+        )
+
+        # Since ci_status_body is None (404 not 403, so no fallback), returns None
         assert result is None
 
     @pytest.mark.asyncio
