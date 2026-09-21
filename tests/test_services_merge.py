@@ -13,13 +13,13 @@ class TestPutMergePr:
     """Tests for put_merge_pr function."""
 
     def test_put_merge_pr_dry_run(self) -> None:
-        """Test dry_run mode - should return None without merging."""
+        """Test dry_run mode - should return empty list without merging."""
         mock_gh = Mock()
         list_mergeable_prs = [{"repo": "org/repo", "number": 1, "title": "PR 1", "html_url": "url1"}]
 
         result = asyncio.run(put_merge_pr(mock_gh, list_mergeable_prs, "merge", True))
 
-        assert result is None
+        assert result == []
 
     @pytest.mark.asyncio
     @patch("pkg_30922.services.gh_merge._merge")
