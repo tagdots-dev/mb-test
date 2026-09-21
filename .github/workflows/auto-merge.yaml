@@ -22,6 +22,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      statuses: read
 
     steps:
       - name: Checkout source code # https://github.com/marketplace/actions/checkout
@@ -38,7 +39,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
           enable-cache: "true"
 
-      - name: Merge Pull Requests
+      - name: Merge Pull Requests # https://github.com/tagdots-dev/mb-test/
         id: merge-pull-request
         uses: tagdots-dev/mb-test@main
         env:
@@ -48,15 +49,3 @@ jobs:
           dry-run: true
           include-labels: dependencies,automerge
           owner: tagdots-dev
-
-      # - name: Install pkg-30922
-      #   shell: bash
-      #   run: uv add pkg-30922
-
-      # - name: Merge Pull Requests
-      #   shell: bash
-      #   run: |
-      #     python -m pkg_30922.cli \
-      #       --labels "ready-to-merge" \
-      #       --merge-method squash \
-      #       --dry-run false
