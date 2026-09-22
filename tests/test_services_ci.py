@@ -25,17 +25,20 @@ class TestEvaluateCiStatus:
 
     def test_evaluate_ci_status_single_check_suite_pending(self) -> None:
         """Test CI status with single check suite - should return None (pending)."""
-        ci_status = {"total_count": 1}
+        ci_status = {
+            "total_count": 1,
+            "check_suites": [{"status": "completed", "conclusion": "failure"}],
+        }
         result = _evaluate_ci_status(ci_status)
         assert result is None
 
     def test_evaluate_ci_status_last_conclusion_success(self) -> None:
-        """Test CI status with last check suite success - should return ok-for-merge."""
+        """Test CI status with all check suites success - should return ok-for-merge."""
         ci_status = {
             "total_count": 2,
             "check_suites": [
-                {"conclusion": "failure"},
-                {"conclusion": "success"},
+                {"status": "completed", "conclusion": "success"},
+                {"status": "completed", "conclusion": "success"},
             ],
         }
         result = _evaluate_ci_status(ci_status)
@@ -46,8 +49,8 @@ class TestEvaluateCiStatus:
         ci_status = {
             "total_count": 2,
             "check_suites": [
-                {"conclusion": "success"},
-                {"conclusion": "failure"},
+                {"status": "completed", "conclusion": "success"},
+                {"status": "completed", "conclusion": "failure"},
             ],
         }
         result = _evaluate_ci_status(ci_status)
@@ -58,8 +61,8 @@ class TestEvaluateCiStatus:
         ci_status = {
             "total_count": 2,
             "check_suites": [
-                {"conclusion": "success"},
-                {"conclusion": None},
+                {"status": "completed", "conclusion": "success"},
+                {"status": "pending", "conclusion": None},
             ],
         }
         result = _evaluate_ci_status(ci_status)
@@ -70,6 +73,12 @@ class TestEvaluateCiStatus:
         ci_status = {"total_count": 0}
         result = _evaluate_ci_status(ci_status)
         assert result == "ok-for-merge"
+
+    def test_evaluate_ci_status_total_count_positive_but_empty_suites(self) -> None:
+        """Test CI status with total_count > 0 but empty check_suites - should return None."""
+        ci_status = {"total_count": 2, "check_suites": []}
+        result = _evaluate_ci_status(ci_status)
+        assert result is None
 
     def test_evaluate_review_status_approved(self) -> None:
         """Test review status with sufficient approvals."""
@@ -179,7 +188,7 @@ class TestEvaluateCiStatusStatusApiFallback:
         """Test CI status with status API fallback (total_count=1, conclusion=success)."""
         ci_status = {
             "total_count": 1,
-            "check_suites": [{"conclusion": "success"}],
+            "check_suites": [{"status": "completed", "conclusion": "success"}],
         }
         result = _evaluate_ci_status(ci_status)
         assert result == "ok-for-merge"
@@ -188,7 +197,7 @@ class TestEvaluateCiStatusStatusApiFallback:
         """Test CI status with status API fallback (total_count=1, conclusion=None)."""
         ci_status = {
             "total_count": 1,
-            "check_suites": [{"conclusion": None}],
+            "check_suites": [{"status": "pending", "conclusion": None}],
         }
         result = _evaluate_ci_status(ci_status)
         assert result is None
@@ -197,7 +206,7 @@ class TestEvaluateCiStatusStatusApiFallback:
         """Test CI status with status API fallback (total_count=1, conclusion=failure)."""
         ci_status = {
             "total_count": 1,
-            "check_suites": [{"conclusion": "failure"}],
+            "check_suites": [{"status": "completed", "conclusion": "failure"}],
         }
         result = _evaluate_ci_status(ci_status)
         assert result is None
@@ -562,7 +571,16 @@ class TestEvaluationIntegration:
         # Note: to_thread returns (headers, body) where body is the actual response data
         mock_to_thread.side_effect = [
             (None, {"draft": False, "mergeable": True, "rebaseable": True}),  # PR body
-            (None, {"total_count": 2, "check_suites": [{"conclusion": "success"}, {"conclusion": "success"}]}),  # CI status
+            (
+                None,
+                {
+                    "total_count": 2,
+                    "check_suites": [
+                        {"status": "completed", "conclusion": "success"},
+                        {"status": "completed", "conclusion": "success"},
+                    ],
+                },
+            ),  # CI status
             (None, {"required_approving_review_count": 1}),  # Protection
             (None, [{"state": "APPROVED", "user": {"login": "reviewer1"}}]),  # Reviews
         ]
@@ -686,7 +704,16 @@ class TestEvaluationIntegration:
     async def test_evaluation_changes_requested(self, mock_to_thread: Mock) -> None:
         mock_to_thread.side_effect = [
             (None, {"draft": False, "mergeable": True, "rebaseable": True}),
-            (None, {"total_count": 2, "check_suites": [{"conclusion": "success"}, {"conclusion": "success"}]}),
+            (
+                None,
+                {
+                    "total_count": 2,
+                    "check_suites": [
+                        {"status": "completed", "conclusion": "success"},
+                        {"status": "completed", "conclusion": "success"},
+                    ],
+                },
+            ),
             (None, {"required_approving_review_count": 1}),
             (None, [{"state": "CHANGES_REQUESTED", "user": {"login": "reviewer1"}}]),
         ]
@@ -700,7 +727,16 @@ class TestEvaluationIntegration:
     async def test_evaluation_insufficient_approvals(self, mock_to_thread: Mock) -> None:
         mock_to_thread.side_effect = [
             (None, {"draft": False, "mergeable": True, "rebaseable": True}),
-            (None, {"total_count": 2, "check_suites": [{"conclusion": "success"}, {"conclusion": "success"}]}),
+            (
+                None,
+                {
+                    "total_count": 2,
+                    "check_suites": [
+                        {"status": "completed", "conclusion": "success"},
+                        {"status": "completed", "conclusion": "success"},
+                    ],
+                },
+            ),
             (None, {"required_approving_review_count": 2}),
             (None, [{"state": "APPROVED", "user": {"login": "reviewer1"}}]),
         ]
@@ -770,7 +806,16 @@ class TestEvaluationIntegration:
     async def test_evaluation_bypass_review_count(self, mock_to_thread: Mock) -> None:
         mock_to_thread.side_effect = [
             (None, {"draft": False, "mergeable": True, "rebaseable": True}),
-            (None, {"total_count": 2, "check_suites": [{"conclusion": "success"}, {"conclusion": "success"}]}),
+            (
+                None,
+                {
+                    "total_count": 2,
+                    "check_suites": [
+                        {"status": "completed", "conclusion": "success"},
+                        {"status": "completed", "conclusion": "success"},
+                    ],
+                },
+            ),
             (None, {"required_approving_review_count": 2}),
             (None, [{"state": "APPROVED", "user": {"login": "reviewer1"}}]),
         ]

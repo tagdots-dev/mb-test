@@ -48,6 +48,7 @@ async def get_open_prs(
     Raises:
         Exception: Errors are logged but do not stop processing of other repos.
     """
+    print("✅ Finding Open Pull Request...")
     if not repos:
         return []
 
@@ -67,9 +68,9 @@ async def get_open_prs(
         elif isinstance(result, list):
             list_open_prs.extend(result)
 
-    print(f"✅ Starting Open PR Information  :: {len(list_open_prs)}")
     for pr in list_open_prs:
         print(f"   ▪ PR: {pr["html_url"]} (title: {pr["title"]})")
+    print(f"   Total Number of Open PR :: {len(list_open_prs)}\n")
 
     return list_open_prs
 

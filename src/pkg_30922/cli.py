@@ -122,7 +122,7 @@ def print_summary(number_of_open_prs: int, number_of_mergeable_prs: int, number_
     dict_summary["mergeable-prs"] = number_of_mergeable_prs
     dict_summary["merged-prs"] = number_of_merged_prs
     print()
-    print(f"🎉 Merge Pull Request Task Info. :: {dict_summary}")
+    print(f"🎉 Merge Pull Request Summary :: {dict_summary}")
 
 
 @click.command()
