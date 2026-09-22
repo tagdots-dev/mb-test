@@ -21,7 +21,7 @@ from .services.gh_pr import get_open_prs
 from .services.gh_repo import get_repos_from_all, get_repos_from_owner
 from .services.gh_user import get_auth, get_token_user_info
 
-__version__ = "1.0.0"
+__version__ = "1.0.3"
 
 __all__ = (
     "Config",

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.0.3 (2026-09-22)
+
+
+- fix: revise logic in _evaluate_ci_status on status and conclusion
+- fix: establish final action
+
 ## 1.0.0 (2026-09-21)
 
 
