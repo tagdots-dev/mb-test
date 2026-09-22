@@ -4,6 +4,7 @@
 
 
 - fix: revise logic in _evaluate_ci_status on status and conclusion
+- fix: merge liimitation
 - fix: establish final action
 
 ## 1.0.0 (2026-09-21)
@@ -15,18 +16,6 @@
 - fix: suppress confusing 403 errors
 - fix: suppress 403 and continue to fallback with check status
 - fix: fix action
-- fix: fix action
-- fix: fix action
-- fix: fix action
-- fix: fix action
-- fix: fix action
-- fix: fix action
-- fix: fix action
-- fix: fix action
-- fix: fix action yaml
-- fix: fix action yaml
-- fix: fix action yaml
-- fix: fix action yaml
 - feat: add action yaml
 - test: test new auto-merge workflow
 - fix: Skip CKV_SECRET_6
