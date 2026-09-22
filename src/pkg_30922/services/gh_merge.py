@@ -65,6 +65,8 @@ async def put_merge_pr(
         print("❌ Dry-Run Must Be False to Merge")
         return []
 
+    print("✅ Final Merged Open PR Info...")
+
     list_merged_prs: List[dict] = []
 
     for pr in list_mergeable_prs:
@@ -96,9 +98,9 @@ async def put_merge_pr(
         except Exception as err:
             print(f"⚠️  Error processing {pr_repo} (PR #{pr_number}): {err}")
 
-    print(f"✅ Final Merged Open PR Info     :: {len(list_merged_prs)}")
     for pr in list_merged_prs:
         print(f'   ▪ PR: {pr["html_url"]} (title: {pr["title"]})')
+    print(f"   Total Number of Merged PR :: {len(list_merged_prs)}\n")
 
     return list_merged_prs
 

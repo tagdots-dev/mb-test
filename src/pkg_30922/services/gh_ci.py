@@ -59,6 +59,7 @@ async def get_merge_readiness(
         - ci_chk_suites_status: CI status
         - pr_req_review_status: Review approval status
     """
+    print("✅ Finding PR Ready For Merge...")
     tasks = [
         _evaluation(
             gh,
@@ -86,7 +87,6 @@ async def get_merge_readiness(
         elif isinstance(result, list):
             list_mergeable_prs.extend(result)
 
-    print(f"✅ Open PR Ready For Merge Info. :: {len(list_mergeable_prs)}")
     for mpr in list_mergeable_prs:
         print(
             f"   ▪ Repo: {mpr["repo"]} (PR #{mpr["number"]}) -> "
@@ -95,7 +95,7 @@ async def get_merge_readiness(
             f"CI status checks: {mpr["ci_chk_suites_status"]}, "
             f"Approval Review checks: {mpr["pr_req_review_status"]}"
         )
-
+    print(f"   Total Number of Mergeable PR :: {len(list_mergeable_prs)}\n")
     return list_mergeable_prs
 
 
@@ -233,6 +233,7 @@ async def _evaluation(
             return
 
         ci_chk_suites_status = _evaluate_ci_status(ci_status_body)
+
         if ci_chk_suites_status is None:
             return
 
@@ -383,7 +384,7 @@ def _evaluate_ci_status(ci_status_body: dict) -> str | None:
     """
     Evaluate CI status and return merge readiness.
 
-    Checks the latest check-suite conclusion to determine if CI is passing.
+    Checks all check-suites status and conclusion to determine if CI is passing.
     Handles responses from both check-suites API and status API fallback.
 
     Args:
@@ -392,28 +393,34 @@ def _evaluate_ci_status(ci_status_body: dict) -> str | None:
     Returns:
         "ok-for-merge" if:
             - No CI checks (total_count == 0), OR
-            - CI checks completed with success conclusion
-        None if PR should be skipped (pending, failed, or no approval).
+            - All check suites have status="completed" and conclusion in ["success", "skipped", "neutral"]
+        None if PR should be skipped (pending, failed, or incomplete checks).
     """
+
     check_suites_total_count = ci_status_body.get("total_count", 0)
 
     if check_suites_total_count == 0:
         return "ok-for-merge"
 
-    if check_suites_total_count == 1:
-        # Check if this is from status API fallback with success state
-        # In this case, total_count=1 with conclusion=success means CI passed
-        conclusion = ci_status_body.get("check_suites", [{}])[-1].get("conclusion")
-        if conclusion == "success":
-            return "ok-for-merge"
-        return None  # check-suites pending approval to run or failed
+    # At this point, check_suites_total_count > 0
+    check_suites = ci_status_body.get("check_suites", [])
+    if check_suites:
+        for suite in check_suites:
+            status = suite.get("status")
+            conclusion = suite.get("conclusion")
 
-    # check_suites_total_count: 2 - check the last one's conclusion
-    conclusion = ci_status_body["check_suites"][-1].get("conclusion")
-    if conclusion == "success":
+            # Every status MUST be "completed"
+            if status != "completed":
+                return None
+
+            # Every conclusion must be one of ["success", "skipped", "neutral"]
+            if conclusion not in ["success", "skipped", "neutral"]:
+                return None
+
+        # All checks passed
         return "ok-for-merge"
 
-    return None  # Skip PR
+    return None  # Skip PR if no check_suites or empty check_suites
 
 
 async def _fetch_status_ci_fallback(gh: Any, pr_repo: str, pr_sha: str) -> dict | None:

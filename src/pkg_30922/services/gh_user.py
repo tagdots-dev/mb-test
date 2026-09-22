@@ -84,7 +84,7 @@ def get_token_user_info(gh: Github, user: AuthenticatedUser.AuthenticatedUser | 
 
         org_access = [org_access.name for org_access in user.get_orgs()]
 
-        print(f"✅ Token Owner User Information  :: login = {user_login}, Org. Access = {org_access}")
+        print(f"✅ Token Owner User Information  :: login = {user_login}, Org. Access = {org_access}\n")
 
         return (user_login, cast(list[str], org_access))
 
