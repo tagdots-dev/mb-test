@@ -236,7 +236,7 @@ async def main(
         list_mergeable_prs = await get_merge_readiness(gh, list_open_prs, base_branch, bypass_review_count, merge_method)
 
         # 6. Merge PRs
-        list_merged_prs = await put_merge_pr(gh, list_mergeable_prs, merge_method, dry_run)
+        list_merged_prs = await put_merge_pr(gh, list_mergeable_prs, merge_method, dry_run, base_branch)
 
         print_summary(len(list_open_prs), len(list_mergeable_prs), len(list_merged_prs))
 

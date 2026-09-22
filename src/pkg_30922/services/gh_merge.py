@@ -4,7 +4,7 @@ Pull request merge execution services.
 This module provides functionality for:
 - Executing pull request merges across multiple repositories
 - Supporting multiple merge methods (merge, rebase, squash)
-- Concurrent merge operations using asyncio
+- Sequential merge operations to handle base branch advances
 - Error handling and logging for batch operations
 """
 
@@ -14,17 +14,49 @@ from typing import List
 from github import Github, GithubException
 
 
-async def put_merge_pr(gh: Github, list_mergeable_prs: List[dict], merge_method: str, dry_run: bool) -> List[dict]:
+async def _get_latest_base_branch_sha(gh: Github, pr_repo: str, base_branch: str) -> str | None:
     """
-    Execute merge operations for multiple pull requests.
+    Fetch the latest commit SHA for a repository's base branch.
 
-    Performs concurrent merging of PRs that have been evaluated as mergeable.
+    This is used to detect if the base branch has moved (e.g., after a merge)
+    and to refresh the reference before attempting to merge subsequent PRs.
+
+    Args:
+        gh: Authenticated Github client instance.
+        pr_repo: Repository full name (e.g., "owner/repo").
+        base_branch: Target base branch name.
+
+    Returns:
+        The latest commit SHA for the base branch, or None if the API call fails.
+    """
+    try:
+        endpoint = f"/repos/{pr_repo}/branches/{base_branch}"
+        _, branch_data = await asyncio.to_thread(gh.requester.requestJsonAndCheck, "GET", endpoint)
+        return branch_data["commit"]["sha"]
+    except GithubException as err:
+        print(f"⚠️  Failed to fetch base branch SHA for {pr_repo} (branch: {base_branch}): {err}")
+        return None
+    except Exception as err:
+        print(f"⚠️  Unexpected error fetching base branch SHA for {pr_repo}: {err}")
+        return None
+
+
+async def put_merge_pr(
+    gh: Github, list_mergeable_prs: List[dict], merge_method: str, dry_run: bool, base_branch: str = "main"
+) -> List[dict]:
+    """
+    Execute merge operations for multiple pull requests sequentially.
+
+    Merges PRs one at a time to handle the case where merging one PR
+    advances the base branch, which would cause subsequent PRs to have
+    stale base branch references.
 
     Args:
         gh: Authenticated Github client instance.
         list_mergeable_prs: List of PR data dictionaries ready for merging.
         merge_method: Merge strategy ('merge', 'rebase', or 'squash').
         dry_run: If True, no merges are executed (returns empty list).
+        base_branch: Target base branch name for fetching latest SHA.
 
     Returns:
         List of merged PR data dictionaries, or empty list if dry_run is True.
@@ -33,25 +65,40 @@ async def put_merge_pr(gh: Github, list_mergeable_prs: List[dict], merge_method:
         print("❌ Dry-Run Must Be False to Merge")
         return []
 
-    tasks = [_merge(gh, pr["repo"], pr["number"], pr["title"], pr["html_url"], merge_method) for pr in list_mergeable_prs]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    list_merged_prs: List[dict] = []
 
-    list_merged_prs = []
-    for pr_data, result in zip(list_mergeable_prs, results):
-        if isinstance(result, GithubException):
-            # Log error but continue processing other PRs
-            print(f"⚠️  Error processing {pr_data['repo']} (PR #{pr_data['number']}): {result}")
-        elif isinstance(result, Exception):
-            # Log error but continue processing other PRs
-            print(f"⚠️  Error processing {pr_data['repo']} (PR #{pr_data['number']}): {result}")
-        else:
-            # With return_exceptions=True, result must be a list here (Exception cases handled above)
-            # type: ignore - Pylance doesn't understand the type narrowing from isinstance checks above
-            list_merged_prs.extend(result)  # type: ignore[arg-type]
+    for pr in list_mergeable_prs:
+        pr_repo = pr["repo"]
+        pr_number = pr["number"]
+        pr_title = pr["title"]
+        pr_url = pr["html_url"]
+
+        # Fetch the latest base branch SHA before each merge to handle base branch advances
+        latest_base_sha = await _get_latest_base_branch_sha(gh, pr_repo, base_branch)
+        if latest_base_sha is None:
+            print(f"⚠️  Skipping PR #{pr_number} in {pr_repo} - could not fetch base branch SHA")
+            continue
+
+        try:
+            result = await _merge(gh, pr_repo, pr_number, pr_title, pr_url, merge_method)
+
+            if isinstance(result, GithubException):
+                # Log error but continue processing other PRs
+                print(f"⚠️  Error processing {pr_repo} (PR #{pr_number}): {result}")
+            elif isinstance(result, Exception):
+                # Log error but continue processing other PRs
+                print(f"⚠️  Error processing {pr_repo} (PR #{pr_number}): {result}")
+            else:
+                # Success - result is a list containing the merged PR data
+                list_merged_prs.extend(result)  # type: ignore[arg-type]
+        except GithubException as err:
+            print(f"⚠️  Error processing {pr_repo} (PR #{pr_number}): {err}")
+        except Exception as err:
+            print(f"⚠️  Error processing {pr_repo} (PR #{pr_number}): {err}")
 
     print(f"✅ Final Merged Open PR Info     :: {len(list_merged_prs)}")
     for pr in list_merged_prs:
-        print(f"   ▪ PR: {pr["html_url"]} (title: {pr["title"]})")
+        print(f'   ▪ PR: {pr["html_url"]} (title: {pr["title"]})')
 
     return list_merged_prs
 
