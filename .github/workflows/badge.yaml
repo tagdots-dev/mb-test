@@ -1,0 +1,31 @@
+---
+name: setup-badge
+
+on:
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.14.x"
+  UV_VERSION: "0.12.x"
+
+permissions:
+  actions: read
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  custom-badge:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Run setup-badge # https://github.com/tagdots/setup-badge
+        id: badge-coverage
+        uses: tagdots/setup-badge@fix/action
+        with:
+          badge-name: test
+          label: "Name"
+          message: "setup-badge"
