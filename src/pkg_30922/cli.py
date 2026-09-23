@@ -122,7 +122,7 @@ def print_summary(number_of_open_prs: int, number_of_mergeable_prs: int, number_
     dict_summary["mergeable-prs"] = number_of_mergeable_prs
     dict_summary["merged-prs"] = number_of_merged_prs
     print()
-    print(f"🎉 Merge Pull Request Summary :: {dict_summary}")
+    print(f"🎉 Merge-Pulls Summary :: {dict_summary}")
 
 
 @click.command()
@@ -180,7 +180,7 @@ async def main(
     merged_config = merge_config_with_cli(config, cli_args)
 
     # Display startup message first
-    print("🚀 Starting Merge-Pulls (Merge Pull Requests) on GitHub...\n")
+    print(f"🚀 Starting Merge-Pulls ({__version__})\n")
 
     # Load config if available (for display purposes)
     if config_file:
