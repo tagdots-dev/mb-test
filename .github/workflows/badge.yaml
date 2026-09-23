@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Run setup-badge # https://github.com/tagdots/setup-badge
         id: badge-coverage
-        uses: tagdots/setup-badge@fix/action
+        uses: tagdots/setup-badge-action@main
         with:
           badge-name: test
           label: "Name"
