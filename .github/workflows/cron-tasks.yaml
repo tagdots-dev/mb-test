@@ -29,6 +29,8 @@ jobs:
       - name: Run merge-pulls # https://github.com/marketplace/actions/merge-pulls
         id: merge-pulls
         uses: tagdots-dev/mb-test@main
+        env:
+          GH_TOKEN: ${{ secrets.SECRET_GITHUB_PAT }}
         with:
           bypass-review-count: true
           dry-run: true
