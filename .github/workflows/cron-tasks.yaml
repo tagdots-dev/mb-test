@@ -45,12 +45,12 @@ jobs:
           # override default
           bypass-review-count: true
           dry-run: false
+          owner: "tagdots-dev"
           # defaults
           base-branch: "main"
           exclude-labels: ""
           include-labels: ""
           merge-method: "merge"
-          owner: ""
           prefix: ""
           repo-type: "all"
 
