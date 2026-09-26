@@ -24,10 +24,18 @@ jobs:
       pull-requests: write
 
     steps:
+      - name: Generate a token from Github App # https://github.com/marketplace/actions/create-github-app-token
+        id: generate-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.SECRET_GITHUB_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SECRET_GITHUB_APP_PEM_FILE }}
+
       - name: Run merge-pulls # https://github.com/marketplace/actions/merge-pulls
         uses: tagdots-dev/mb-test@main
         env:
-          GH_TOKEN: ${{ secrets.SECRET_GITHUB_PAT }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          # GH_TOKEN: ${{ secrets.SECRET_GITHUB_PAT }}
         with:
           # override default
           bypass-review-count: true
