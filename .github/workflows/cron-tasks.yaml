@@ -31,6 +31,11 @@ jobs:
           client-id: ${{ secrets.SECRET_GITHUB_APP_CLIENT_ID }}
           private-key: ${{ secrets.SECRET_GITHUB_APP_PEM_FILE }}
 
+      - name: Checkout source code # https://github.com/marketplace/actions/checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
       - name: Run merge-pulls # https://github.com/marketplace/actions/merge-pulls
         uses: tagdots-dev/mb-test@main
         env:
