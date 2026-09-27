@@ -32,7 +32,7 @@ jobs:
         with:
           # override default
           bypass-review-count: true
-          dry-run: false
+          dry-run: true
           # defaults
           base-branch: "main"
           exclude-labels: ""
