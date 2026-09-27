@@ -24,34 +24,21 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Generate a token from Github App # https://github.com/marketplace/actions/create-github-app-token
-        id: generate-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ secrets.SECRET_GITHUB_APP_CLIENT_ID }}
-          private-key: ${{ secrets.SECRET_GITHUB_APP_PEM_FILE }}
-          owner: ${{ github.repository_owner }}
-
-      # - name: Checkout source code # https://github.com/marketplace/actions/checkout
-      #   uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      #   with:
-      #     token: ${{ steps.generate-token.outputs.token }}
-
       - name: Run merge-pulls # https://github.com/marketplace/actions/merge-pulls
-        uses: tagdots-dev/mb-test@main
+        # uses: tagdots-dev/mb-test@main
+        uses: tagdots/merge-pulls@c4616c7eaa70755e69e9e3aeadb58c52a225f6bf # 1.0.1
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
-          # GH_TOKEN: ${{ secrets.SECRET_GITHUB_PAT }}
+          GH_TOKEN: ${{ secrets.SECRET_GITHUB_PAT }}
         with:
           # override default
           bypass-review-count: true
           dry-run: false
-          owner: "tagdots-dev"
           # defaults
           base-branch: "main"
           exclude-labels: ""
           include-labels: ""
           merge-method: "merge"
+          owner: ""
           prefix: ""
           repo-type: "all"
 
